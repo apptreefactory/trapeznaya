@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>История версий — Кухня трапезной</title>
+<meta name="robots" content="noindex">
+<style>
+:root{
+  --paper:#f3f5f1; --sheet:#ffffff; --ink:#1d282d; --ink-2:#56646a; --rule:#d3dad5;
+  --accent:#a3301c; --accent-ink:#ffffff; --accent-soft:#f4e3df;
+  --f:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+  --f-mono:ui-monospace,"Cascadia Mono",Consolas,monospace;
+  color-scheme:light dark;
+}
+@media (prefers-color-scheme:dark){
+  :root{--paper:#141a1c; --sheet:#1b2326; --ink:#e3e8e5; --ink-2:#9aa8ac; --rule:#323e40;
+    --accent:#e5785f; --accent-ink:#141a1c; --accent-soft:#3a2420;}
+}
+*{box-sizing:border-box}
+body{margin:0; background:var(--paper); color:var(--ink); font:16px/1.5 var(--f)}
+main{max-width:860px; margin:0 auto; padding:32px 16px 56px}
+h1{font-size:1.6rem; line-height:1.2; margin:0 0 4px}
+.sub{color:var(--ink-2); margin:0 0 24px}
+.card{background:var(--sheet); border:1px solid var(--rule); border-radius:10px; padding:20px}
+.current{border-left:4px solid var(--accent); margin-bottom:32px}
+.current .label{color:var(--ink-2); font-size:.85rem; text-transform:uppercase; letter-spacing:.06em; margin:0 0 6px}
+.current h2{font-size:1.25rem; margin:0 0 14px}
+.btn{display:inline-block; background:var(--accent); color:var(--accent-ink); text-decoration:none; font-weight:600;
+  padding:10px 18px; border-radius:8px; margin-bottom:16px}
+.btn:hover{filter:brightness(1.08)}
+.btn:focus-visible,a:focus-visible{outline:3px solid var(--accent); outline-offset:2px}
+h3{font-size:1rem; margin:0 0 6px}
+ul{margin:0; padding-left:1.2em}
+li+li{margin-top:4px}
+h2.all{font-size:1.15rem; margin:0 0 12px}
+table{width:100%; border-collapse:collapse; background:var(--sheet); border:1px solid var(--rule); border-radius:10px; overflow:hidden}
+th,td{text-align:left; vertical-align:top; padding:12px 14px; border-bottom:1px solid var(--rule)}
+tr:last-child td{border-bottom:0}
+th{font-size:.82rem; color:var(--ink-2); font-weight:600; background:var(--paper)}
+td.num,td.date{font-family:var(--f-mono); font-variant-numeric:tabular-nums; white-space:nowrap}
+td.link{white-space:nowrap}
+a{color:var(--accent)}
+.tag{display:inline-block; font-size:.75rem; background:var(--accent-soft); color:var(--accent); border-radius:4px; padding:1px 6px; margin-left:6px; vertical-align:1px}
+@media (max-width:620px){
+  table,thead,tbody,tr,td{display:block} thead{display:none}
+  table{border:0; background:none}
+  tr{background:var(--sheet); border:1px solid var(--rule); border-radius:10px; padding:12px 14px; margin-bottom:12px}
+  td{border:0; padding:2px 0}
+  td.date,td.num{display:inline} td.num::before{content:" · № "} td.date{color:var(--ink-2)}
+  td.what{margin:6px 0}
+}
+</style>
+</head>
+<body>
+<main>
+  <h1>История версий</h1>
+  <p class="sub">Кухня трапезной — приложение для подготовки задания на кухню трапезной.</p>
+
+  <section class="card current" id="current" aria-labelledby="cur-h"></section>
+
+  <h2 class="all" id="all-h">Все версии</h2>
+  <table aria-labelledby="all-h">
+    <thead><tr><th scope="col">Дата</th><th scope="col">№</th><th scope="col">Что нового</th><th scope="col">Ссылка</th></tr></thead>
+    <tbody id="rows"></tbody>
+  </table>
+  <noscript><p>Для показа списка включите JavaScript. Актуальная версия: <a href="../">открыть приложение</a>.</p></noscript>
+</main>
+<script>
+/* Список версий. Новая версия добавляется в начало списка.
+   Каждая версия лежит в папке v/<номер>/ и больше не меняется; актуальная — в корне сайта. */
+const VERSIONS=[
+  {n:1, date:'2026-11-18', changes:['Первая опубликованная версия: приложение выложено как есть, без изменений.']}
+];
+
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const MONTHS=['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
+const longDate=d=>{const [y,m,dd]=d.split('-').map(Number); return `${dd} ${MONTHS[m-1]} ${y}`;};
+const shortDate=d=>d.split('-').reverse().join('.');
+const list=a=>`<ul>${a.map(c=>`<li>${esc(c)}</li>`).join('')}</ul>`;
+
+const cur=VERSIONS[0];
+document.getElementById('current').innerHTML=`
+  <p class="label">Актуальная версия</p>
+  <h2 id="cur-h">Версия ${cur.n} от ${longDate(cur.date)}</h2>
+  <a class="btn" href="../">Открыть актуальную версию</a>
+  <h3>Последние изменения</h3>${list(cur.changes)}`;
+
+document.getElementById('rows').innerHTML=VERSIONS.map((v,i)=>`<tr>
+  <td class="date">${shortDate(v.date)}</td>
+  <td class="num">${v.n}${i===0?'<span class="tag">актуальная</span>':''}</td>
+  <td class="what">${list(v.changes)}</td>
+  <td class="link"><a href="../v/${v.n}/">Открыть версию ${v.n}</a></td></tr>`).join('');
+</script>
+</body>
+</html>
