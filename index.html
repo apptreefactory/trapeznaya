@@ -1401,9 +1401,10 @@ function exampleData(){
       {id:'o3', type:'window', side:'t', off:3.6, w:1.5, sill:0.9}
     ],
     points:[
-      {id:'p1', type:'cw', side:'r', off:1.2, hgt:0.6, spec:''}, {id:'p2', type:'sewer', side:'r', off:1.6, hgt:0.1, spec:'Выпуск 110 мм'},
+      {id:'p1', type:'cw', side:'r', off:1.2, hgt:0.6, spec:''}, {id:'p2', type:'sewer', side:'r', off:2.2, hgt:0.1, spec:'Выпуск 110 мм'},
       {id:'p3', type:'vent', side:'t', off:1.6, spec:''}, {id:'p4', type:'el', side:'l', off:3.6, spec:''},
-      {id:'p5', type:'sock', side:'r', off:2.4, hgt:1.1, spec:'Розетка 220 В'}
+      {id:'p5', type:'sock', side:'r', off:2.4, hgt:1.1, spec:'Розетка 220 В'},
+      {id:'p6', type:'sewer', side:'t', off:3.2, hgt:0.1, spec:'Выпуск 110 мм'}
     ]}], cur:'r1', unitRoom:{}, links:[],
     res:{kw:30, ph:3, max:null, phMax:3, fit:false},
     gas:{on:false, src:'main'},
@@ -1413,13 +1414,15 @@ function exampleData(){
       {uid:'e2', qty:2, n:'Стеллаж кухонный', model:'1000×500, 4 полки', w:1000, d:500, h:1800, kw:0, ph:0, z:'store', mount:'floor', hot:false, wat:false, gas:false, role:'shelf', cap:null, plate:null, roomId:'auto', cat:null, zOverride:null}
     ],
     manual:null, edits:{qtySemantics:'total-v1', delta:{}, off:{}, pref:{}, skipHave:{}}, prices:{}, hoodPrice:38000, montage:10,
-    norms:{work:0.9, passage:1.2, hoodV:0.3, hoodOver:0.15, waterTotal:12, waterHot:4, kArea:0.35, cos:0.95, gasHose:2, align:true, strict:false, elPanelDepth:0.8, elPanelWidth:0.6, elPanelLowH:0.95, elWaterDist:1.0, sewerMax:5, snap:0.05},
+    norms:{work:0.9, passage:1.2, hoodV:0.3, hoodOver:0.15, waterTotal:12, waterHot:4, kArea:0.35, cos:0.95, gasHose:2, align:true, strict:false, elPanelDepth:0.8, elPanelWidth:0.6, elPanelLowH:0.95, elWaterDist:1.0, sewerMax:5, snap:0.05, vat:22},
     layout:{}, inserts:[], layoutManual:false, layoutSig:'', planDims:'all', utilities:'existing', nets:{water:'have', sewer:'have', vent:'have', el:'have', gas:'none'}
   };
 }
 // сети проектируются: точки подключения не требуются, «Требуемые подключения» — задание, куда вывести сети
 const NET_KEYS=['water','sewer','vent','el','gas'];
 const netState=(s,k)=>s&&s.nets&&['have','none','unk'].includes(s.nets[k])?s.nets[k]:normNets(s||{})[k];
+function gasStatus(s){ const state=netState(s,'gas');
+  return state==='have'?(s.gas.src==='bottle'?'есть, баллоны':'есть, сеть'):state==='none'?'нет':'неизвестно'; }
 const netsUnknown=s=>NET_KEYS.map((key,i)=>({key,label:['Вода','Канализация','Вентиляция','Электрика','Газ'][i]})).filter(n=>netState(s,n.key)==='unk');
 const netsOpen=s=>NET_KEYS.slice(0,4).some(k=>netState(s,k)!=='have');
 const netsAllNone=s=>NET_KEYS.slice(0,4).every(k=>netState(s,k)==='none');
@@ -1616,7 +1619,7 @@ const HEAT = [
 const HEATI=Object.fromEntries(HEAT.map(h=>[h.k,h]));
 const GAS_GEN={combi:'пароконвектомата', plate:'плиты', kettle:'котла', pan:'сковороды'}, GAS_K=['combi','plate','kettle','pan'], GAS_NAME={combi:'пароконвектомат', plate:'плита', kettle:'котёл', pan:'сковорода'};
 // топливо аппарата: газ только когда в проекте «Есть газ» и пользователь сам выбрал «Газ»; сохранённый выбор не стирается
-function heatFuel(s,k){ return s.gas&&s.gas.on&&GAS_K.includes(k)&&s.heat&&s.heat[k]&&s.heat[k].fuel==='gas'?'gas':'el'; }
+function heatFuel(s,k){ return netState(s,'gas')==='have'&&GAS_K.includes(k)&&s.heat&&s.heat[k]&&s.heat[k].fuel==='gas'?'gas':'el'; }
 function hasGasVer(k,v){ return !!CATI[({combi:'gcombi',plate:'gplate',kettle:'gkettle',pan:'gpan'}[k]||'_')+v]; }
 function heatId(k,v,fuel){ if(fuel==='gas'&&hasGasVer(k,v)) return {combi:'gcombi',plate:'gplate',kettle:'gkettle',pan:'gpan'}[k]+v;
   if(k==='plate') return 'ind'+(v==='2'?'4':v); return {combi:'combi',kettle:'kettle',pan:'pan',rice:'rice',boiler:'boiler',crepe:'crepe'}[k]+v; }
@@ -1816,8 +1819,8 @@ function gasSavings(s){ const out=[];
   return out; }
 function gasHint(s, X, A, B){
   const over=(A!=null&&X>A+1e-6)||(B!=null&&X>B+1e-6); if(!over) return '';
-  if(s.gas&&s.gas.on){ const sv=gasSavings(s); return sv.length?` Перевод на газ снизит нагрузку: ${sv.join(', ')}.`:''; }
-  return ' Если в трапезной есть газ или его можно провести — включите «Есть газ» на шаге «Исходные»: газовое тепловое снижает электрическую нагрузку.'; }
+  if(netState(s,'gas')==='have'){ const sv=gasSavings(s); return sv.length?` Перевод на газ снизит нагрузку: ${sv.join(', ')}.`:''; }
+  return ' Если в трапезной есть газ или его можно провести — отметьте «Газ: есть» на шаге «Подключения»: газовое тепловое снижает электрическую нагрузку.'; }
 // итог по мощности: X — нужно, A — сейчас, B — можно до
 function powerVerdict(p, s){
   const v=powerVerdict0(p,s), {A,B}=resEff(s); v.m+=gasHint(s,p.demand,A,B); return v; }
@@ -3319,7 +3322,7 @@ function fmt1(n){ return (Math.round(n*10)/10).toLocaleString('ru-RU'); }
 function fmt2(n){ return (Math.round(n*100)/100).toLocaleString('ru-RU'); }
 function fmt0(n){ return Math.round(n).toLocaleString('ru-RU'); }
 function fmtM(n){ return fmt2(n)+' м'; }
-function rub(n){ return Math.round(n).toLocaleString('ru-RU')+' ₽'; }
+function rub(n, decimals=0){ return (decimals?fmt2(n):Math.round(n).toLocaleString('ru-RU'))+' ₽'; }
 function plural(n,a,b,c){ n=Math.abs(n)%100; const n1=n%10; if(n>10&&n<20) return c; if(n1>1&&n1<5) return b; if(n1===1) return a; return c; }
 function esc(t){ return String(t).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])); }
 function uid(p){ return p+Date.now().toString(36)+Math.random().toString(36).slice(2,5); }
@@ -3428,6 +3431,10 @@ function normReport(r){ r=r||{}; const m=r.meta||{}, PR=['full','electric','plum
   return {meta:{parish:m.parish||'', address:m.address||'', author:m.author||'', contact:m.contact||'', note:m.note||'', revision:typeof m.revision==='string'?m.revision:'', date:typeof m.date==='string'?m.date:''},
     preset:PR.includes(r.preset)?r.preset:'full', sections:Object.assign({}, r.sections||{}), mono:!!r.mono}; }
 function normGas(g){ g=g||{}; return {on:!!g.on, src:g.src==='bottle'?'bottle':'main'}; }
+function migrateGas(n,g){
+  if(g&&g.on===true) n.nets.gas='have';
+  n.gas=normGas(g); n.gas.on=n.nets.gas==='have';
+}
 function normNets(o){
   const design=o.utilities==='design', E=o.edits||{}, rooms=Array.isArray(o.rooms)?o.rooms:[], pts=rooms.flatMap(r=>r&&Array.isArray(r.points)?r.points:[]).concat(Array.isArray(o.points)?o.points:[]);
   const gas=!design&&(!!(o.gas&&o.gas.on)||pts.some(p=>p&&p.type==='gas')||(Array.isArray(o.existing)?o.existing:[]).some(e=>e&&((CATI[e.cat]&&CATI[e.cat].gas)||itemOf(e).gas))||Object.keys(E.delta||{}).some(id=>CATI[id]&&CATI[id].gas)||Object.values(E.pref||{}).some(id=>CATI[id]&&CATI[id].gas)||(Array.isArray(o.manual)?o.manual:[]).some(e=>e&&CATI[e.cat]&&CATI[e.cat].gas));
@@ -3437,13 +3444,13 @@ function normHeat(n){ for(const k in (n.heat||{})){ const st=n.heat[k]; if(st&&t
 function normRes(r){ r=r||{}; const pos=v=>(typeof v==='number'&&isFinite(v)&&v>0)?v:null;
   return {kw:pos(r.kw), ph:r.ph===1?1:3, max:pos(r.max), phMax:r.phMax===1?1:3, fit:!!r.fit}; }
 function migrate(o){
-  if(o.v===2){ const n=Object.assign(exampleData(), o, {norms:Object.assign(exampleData().norms, o.norms||{}), res:normRes(o.res), gas:normGas(o.gas), nets:normNets(o), report:normReport(o.report), edits:normEdits(o.edits), planDims:['all','sel','off'].includes(o.planDims)?o.planDims:'all'}); n.utilities=netsAllNone(n)?'design':'existing'; n.existing=(Array.isArray(o.existing)?o.existing:[]).map(normExisting); normHeat(n); n.pid=o.pid||''; n.createdAt=o.createdAt||''; n.updatedAt=o.updatedAt||''; n.variantOf=o.variantOf||null; if(!o.rooms) n.rooms=null; prepare(n); clampAll(n); return n; }
+  if(o.v===2){ const n=Object.assign(exampleData(), o, {norms:Object.assign(exampleData().norms, o.norms||{}), res:normRes(o.res), nets:normNets(o), report:normReport(o.report), edits:normEdits(o.edits), planDims:['all','sel','off'].includes(o.planDims)?o.planDims:'all'}); migrateGas(n,o.gas); n.utilities=netsAllNone(n)?'design':'existing'; n.existing=(Array.isArray(o.existing)?o.existing:[]).map(normExisting); normHeat(n); n.pid=o.pid||''; n.createdAt=o.createdAt||''; n.updatedAt=o.updatedAt||''; n.variantOf=o.variantOf||null; if(!o.rooms) n.rooms=null; prepare(n); clampAll(n); return n; }
   if(o.v===1){ const n=exampleState(); n.example=false; n.name=o.name||n.name; n.people=o.people||n.people; n.meals=o.meals||n.meals;
     if(o.room){ n.room={w:o.room.w, d:o.room.d}; n.openings=[{id:'o1', type:'door', side:'b', off:o.room.doorX||0.6, w:o.room.doorW||0.9, swing:'in', hinge:'l', to:'hall'}]; n.points=[]; }
     if(o.res){ n.res=normRes(o.res); }
     n.existing=(o.existing||[]).map(e=>{ if(e.cat&&CATI[e.cat]){ const c=CATI[e.cat], ri=ROLE_INFO[c.role]; return normExisting({uid:e.uid, qty:e.qty, n:c.n, model:'', w:c.w*1000, d:c.d*1000, h:c.h*1000, kw:c.kw, ph:c.kw?c.ph:0, z:c.z, mount:c.mount, hot:!!c.hot, wat:!!c.dr, gas:!!c.gas, gkw:c.gkw||null, role:ri?c.role:null, cap:ri&&ri.cap?c.cap:null, plate:c.role==='burners'?(c.id.startsWith('ind')?'ind':c.gas?'gas':'ten'):null, cat:c.id}); }
       const c=e.custom||{}; return normExisting({uid:e.uid, qty:e.qty, n:c.n||'Оборудование', model:'', w:c.w||600, d:c.d||600, h:850, kw:c.kw||0, ph:c.kw?(c.ph||1):0, z:c.z||'store', mount:c.noPlan?'table':'floor', hot:!!c.hot, wat:!!c.wat, gas:false}); });
-    n.nets=normNets({...o, existing:n.existing}); n.utilities=netsAllNone(n)?'design':'existing'; clampAll(n); return n; }
+    n.nets=normNets({...o, existing:n.existing}); migrateGas(n,o.gas); n.utilities=netsAllNone(n)?'design':'existing'; clampAll(n); return n; }
   return null;
 }
 let savedRaw=S.pid?STORE.raw(S.pid):null;
@@ -3535,7 +3542,7 @@ function stepIss(){ if(P.iss) return P.iss;
   const R=STEP_NAMES.map(()=>({bad:0, warn:0, list:[], seen:new Set()})), lay={};
   const add=(i,t,m,room)=>{ if(t!=='bad'&&t!=='warn') return; const r=R[i]; if(r.seen.has(m)) return; r.seen.add(m); r[t]++; r.list.push(room?{t,m,room}:{t,m}); };
   for(const n of P.notes) add(n.step!=null?n.step:4, n.t, n.m);
-  if(S.res && S.res.max!=null && S.res.kw!=null && S.res.max<S.res.kw) add(0,'bad',`«Можно увеличить до» меньше, чем выделено сейчас (${fmt1(S.res.kw)} кВт).`);
+  if(S.res && S.res.max!=null && S.res.kw!=null && S.res.max<S.res.kw) add(2,'bad',`«Можно увеличить до» меньше, чем выделено сейчас (${fmt1(S.res.kw)} кВт).`);
   for(const n of roomIssues()) add(1, n.t, n.m);
   const many=S.rooms.length>1, cur=S.cur;
   try{ for(const r of S.rooms){ S.cur=r.id; const iss=checkLayout(curGeom(),curUnits()); lay[r.id]=iss;
@@ -3800,7 +3807,7 @@ function heatHaveMeta(cov){ const x=cov.have; if(!x.length) return ''; const kw=
 function heatCard(h){
   const st=S.heat[h.k]||{on:false,v:h.opts[0][0],q:1}, fuel=heatFuel(S,h.k), c=CATI[heatId(h.k,st.v,fuel)], rec=h.rec(S.people), recLabel=(h.opts.find(o=>o[0]===rec)||[])[1], q=st.q==null?1:st.q;
   const title = h.k==='plate' ? (fuel==='gas'?'Газовая плита':'Индукционная плита') : h.n;
-  const canGas = S.gas&&S.gas.on && GAS_K.includes(h.k);
+  const canGas = netState(S,'gas')==='have' && GAS_K.includes(h.k);
   const opts = fuel==='gas' ? h.opts.map(([v,l])=>[v,l, hasGasVer(h.k,v)?'':`газового на ${l} нет`]) : h.opts;
   const noGas = fuel==='gas' ? h.opts.filter(([v])=>!hasGasVer(h.k,v)).map(([v,l])=>`газового на ${l} нет`) : [];
   const cov=heatCoverage(S,h.k), haveRow=heatHaveHtml(h,cov);
@@ -3839,37 +3846,22 @@ function stepInput(){
     <div class="field"><span>Трапез в день</span>${seg('meals',S.meals,[[1,'1'],[2,'2'],[3,'3']])}</div>
     ${num('dishware','Тарелок и чашек на человека',S.dishware||3,1,1,8,'для подбора мойки посуды')}
   </div></section>
-  <section class="panel"><div class="heat-head"><h3 style="margin:0">Тепловое оборудование</h3><div class="btns"><label class="check gas-on tap"><input id="gas-on" type="checkbox" ${S.gas&&S.gas.on?'checked':''}>Есть газ</label><button class="btn tap" type="button" id="heat-rec">Подобрать по числу человек</button></div></div>
+  <section class="panel"><div class="heat-head"><h3 style="margin:0">Тепловое оборудование</h3><div class="btns"><span>Газ: ${gasStatus(S)}</span><button class="btn tap" type="button" data-go="2">Изменить на шаге «Подключения»</button><button class="btn tap" type="button" id="heat-rec">Подобрать по числу человек</button></div></div>
     ${heatRecOpen?heatRecPanel():''}
-    ${S.gas&&S.gas.on?`<div class="field gas-src"><span>Источник газа</span>${seg('gas-src',S.gas.src,[['main','Сеть (есть или можно провести)'],['bottle','Баллоны']])}</div>`:''}
-    <p class="hint" style="margin:6px 0 14px">Отметьте аппараты и выберите исполнение. Подбор берёт ровно то, что выбрано, — от этого считается нужная мощность. Если газ есть или его можно провести, пароконвектомат, плиту, котёл и сковороду можно взять газовыми — это снижает электрическую нагрузку.</p>
+    <p class="hint" style="margin:6px 0 14px">Отметьте аппараты и выберите исполнение. Подбор берёт ровно то, что выбрано, — от этого считается нужная мощность. Если на шаге «Подключения» отмечено «Газ: есть», пароконвектомат, плиту, котёл и сковороду можно взять газовыми — это снижает электрическую нагрузку.</p>
     <div class="heat-grid">${HEAT.map(heatCard).join('')}</div>
   </section>
   <section class="panel"><h3>Остальное оборудование</h3>
     <div class="fields">${chk('cold-on','Подбирать холодильное оборудование',S.coldOn!==false)}${chk('f-fish','Много рыбы — отдельные стол и ванна для рыбы',S.feats.fish)}${chk('f-meat','Много мяса и птицы — отдельные стол и ванна',S.feats.meat)}</div>
   </section>
-  <section class="panel"><h3>Электроснабжение</h3><div class="fields">
-    ${num('kw','Сейчас выделено, кВт',S.res.kw??'',0.5,1,500,'по договору или техусловиям, если известно')}
-    <div class="field"><span>Сейчас ввод</span>${seg('ph',S.res.ph,[[1,'1 фаза, 220 В'],[3,'3 фазы, 380 В']])}</div>
-    <label class="field"><span>Можно увеличить до, кВт</span><input id="kwmax" type="text" inputmode="decimal" data-num autocomplete="off" value="${S.res.max??''}" step="0.5" min="1" max="1000" aria-describedby="kwmax-err"><small>если узнавали у энергоснабжающей организации; например, 35</small><small class="field-err" id="kwmax-err" role="alert" hidden></small></label>
-    ${S.res.max?`<div class="field"><span>Ввод после увеличения</span>${seg('phMax',S.res.phMax||3,[[1,'1 фаза, 220 В'],[3,'3 фазы, 380 В']])}</div>`:''}
-  </div><p class="hint" style="margin-top:12px">Оба значения мощности необязательны. Кухня подбирается под технологию, а на шагах «Подбор» и «Инженерия» видно, сколько мощности ей нужно и хватает ли имеющейся.</p><p class="hint" style="margin-top:12px">Вода, канализация, газ и вентиляция отмечаются точками на шаге «Подключения».</p></section>
   </div>${pager()}`;
 }
 bind[0]=()=>{
-  segBind(main,(k,v)=>{ if(k==='meals') S.meals=+v; if(k==='ph'){ S.res.ph=+v; touch(); render(); return; } if(k==='phMax'){ S.res.phMax=+v; touch(); render(); return; }
-    if(k==='gas-src'){ S.gas.src=v; touch(); render(); return; }
+  segBind(main,(k,v)=>{ if(k==='meals') S.meals=+v;
     if(k.startsWith('fuel-')){ const hk=k.slice(5); S.heat[hk].fuel=v; const m=fixGasHeat(); touch(); render(); toast(m.length?m.join('. '):(v==='gas'?`${HEATI[hk].n}: газовое исполнение`:`${HEATI[hk].n}: электрическое исполнение`)); return; }
     if(k.startsWith('h-')){ S.heat[k.slice(2)].v=v; touch(); render(); return; } touch(); recompute(); });
   const el=document.getElementById('people'); el.addEventListener('input',()=>{ const v=parseFloat(el.value); if(isFinite(v)&&v>=1){ S.people=Math.round(v); touch(); recompute(); } }); el.addEventListener('change',()=>render());
   const dw=document.getElementById('dishware'); dw.addEventListener('input',()=>{ const v=parseFloat(dw.value); if(isFinite(v)&&v>=1){ S.dishware=Math.round(v); touch(); recompute(); } });
-  const kw=document.getElementById('kw'), mx=document.getElementById('kwmax'), err=document.getElementById('kwmax-err');
-  const chkMax=()=>{ const bad=S.res.max!=null&&S.res.kw!=null&&S.res.max<S.res.kw; mx.classList.toggle('err',bad); mx.setAttribute('aria-invalid',String(bad)); err.hidden=!bad;
-    err.textContent=bad?`Не может быть меньше, чем выделено сейчас (${fmt1(S.res.kw)} кВт)`:''; };
-  const resIn=(el,key)=>{ el.addEventListener('input',()=>{ const t=el.value.trim(), v=parseFloat(dot(t)); if(t===''){ S.res[key]=null; } else if(isFinite(v)&&v>0){ S.res[key]=v; } else return;
-    if(S.res.fit && resEff(S).lim==null) S.res.fit=false; touch(); recompute(); chkMax(); });
-    el.addEventListener('change',()=>{ const had=!!mx.closest('.fields').querySelector('[data-seg="phMax"]'); if(had!==!!S.res.max) render(); }); };
-  resIn(kw,'kw'); resIn(mx,'max'); chkMax();
   main.querySelectorAll('[data-hinduct]').forEach(b=>b.addEventListener('click',()=>inductInstead(b.dataset.hinduct)));
   main.querySelectorAll('[data-hunskip]').forEach(b=>b.addEventListener('click',()=>{ if(S.edits.skipHave) delete S.edits.skipHave[b.dataset.hunskip]; touch(); render(); toast('Снова учитывается в подборе'); }));
   main.querySelectorAll('[data-heat-on]').forEach(cb=>cb.addEventListener('change',()=>{ const k=cb.dataset.heatOn, h=HEATI[k];
@@ -3888,8 +3880,6 @@ bind[0]=()=>{
     if(!HEAT.some(h=>h.main&&next[h.k]&&next[h.k].on)){ heatRecErr=true; render(); return; }   // основное тепловое обязательно
     const onlyMine=T.msgs.filter(m=>d.some(x=>!heatRecOff.has(x.k)&&m.includes(GAS_GEN[x.k]||'\u0000')));
     S.heat=next; heatRecOpen=false; heatRecErr=false; touch(); render(); toast('Тепловое подобрано по числу человек'+(onlyMine.length?'. '+onlyMine.join('. '):'')); });
-  document.getElementById('gas-on').addEventListener('change',e=>{ S.gas=S.gas||{on:false,src:'main'}; S.gas.on=e.target.checked; if(S.gas.on&&netState(S,'gas')==='none') S.nets={...S.nets,gas:'unk'}; const m=S.gas.on?fixGasHeat():[]; touch(); render();
-    toast(S.gas.on?(m.length?m.join('. '):'Газ есть: у пароконвектомата, плиты, котла и сковороды можно выбрать газовое исполнение'):'Газа нет: всё тепловое считается электрическим, выбор «Газ» сохранён'); });
   document.getElementById('cold-on').addEventListener('change',e=>{ S.coldOn=e.target.checked; touch(); recompute(); });
   ['fish','meat'].forEach(k=>document.getElementById('f-'+k).addEventListener('change',e=>{ S.feats[k]=e.target.checked; touch(); recompute(); }));
 };
@@ -4467,13 +4457,19 @@ function resChips(){
 function netsPanelHtml(){
   const labels={water:'Вода',sewer:'Канализация',vent:'Вентиляция',el:'Электрика',gas:'Газ'};
   return `<div class="nets-grid">${NET_KEYS.map(k=>`<div><span class="lbl">${labels[k]}</span>${seg('net-'+k,netState(S,k),[['have','Есть'],['none','Нет'],['unk','Неизвестно']])}</div>`).join('')}</div>
+    ${netState(S,'gas')==='have'?`<div class="field gas-src"><span>Источник газа</span>${seg('gas-src',S.gas.src,[['main','Сеть'],['bottle','Баллоны']])}</div>`:''}
     <p class="hint" style="margin-top:8px">Нет — спроектируем: будет задание в PDF. Неизвестно — уточним позже</p>
-    ${netState(S,'gas')==='have'&&S.gas.on===false?'<p class="hint" style="margin-top:8px">Включите «Есть газ» на шаге «Исходные»: снизит электронагрузку</p>':''}
     ${netsAllNone(S)?notesHtml([{t:'info', m:NETS_INFO}]):''}`;
 }
 function stepPoints(){
   return `${stepHead('Точки подключения', `Отметьте, что уже есть: вода, канализация, газ, вентиляция, электрощит. Точки привязываются размерами от углов.`)}${exampleBar()}
   <section class="panel nets-panel" aria-label="Инженерные сети">${netsPanelHtml()}</section>
+  <section class="panel"><h3>Электроснабжение</h3><div class="fields">
+    ${num('kw','Сейчас выделено, кВт',S.res.kw??'',0.5,1,500,'по договору или техусловиям, если известно')}
+    <div class="field"><span>Сейчас ввод</span>${seg('ph',S.res.ph,[[1,'1 фаза, 220 В'],[3,'3 фазы, 380 В']])}</div>
+    <label class="field"><span>Можно увеличить до, кВт</span><input id="kwmax" type="text" inputmode="decimal" data-num autocomplete="off" value="${S.res.max??''}" step="0.5" min="1" max="1000" aria-describedby="kwmax-err"><small>если узнавали у энергоснабжающей организации; например, 35</small><small class="field-err" id="kwmax-err" role="alert" hidden></small></label>
+    ${S.res.max?`<div class="field"><span>Ввод после увеличения</span>${seg('phMax',S.res.phMax||3,[[1,'1 фаза, 220 В'],[3,'3 фазы, 380 В']])}</div>`:''}
+  </div><p class="hint" style="margin-top:12px">Оба значения мощности необязательны. Кухня подбирается под технологию, а на шагах «Подбор» и «Инженерия» видно, сколько мощности ей нужно и хватает ли имеющейся.</p></section>
   <div class="stack"><section>${roomTabs()}${roomEditor()}</section>
   ${elPanels(curGeom()).length?(()=>{ const li=checkLayout(curGeom(),[]).filter(i=>!i.key&&/электрощит/.test(i.m)); return `<section class="panel"><h3>Проверка точек</h3>${li.length?notesHtml(li):`<p class="hint">Краны холодной и горячей воды — не ближе ${fmtM(elN(S).wd)} от электрощита. Выберите щит на плане, чтобы увидеть его зону.</p>`}</section>`; })():''}
   <section class="panel"><h3>Ресурсы по плану</h3>${resChips()}</section></div>${pager()}`;
@@ -4631,7 +4627,28 @@ function nicheOutEdge(room, edge, openings){
 }
 function bindZoom(){}   // кнопки масштаба обрабатывает модуль «Масштаб и план»
 bind[2]=()=>{ bindRoomTabs(); bindRoomEditor();
-  segBind(main,(k,v)=>{ if(!k.startsWith('net-')) return; S.nets={...S.nets,[k.slice(4)]:v}; S.utilities=netsAllNone(S)?'design':'existing'; touch(); render(); }); };
+  segBind(main,(k,v)=>{
+    if(k==='ph'){ S.res.ph=+v; touch(); render(); return; }
+    if(k==='phMax'){ S.res.phMax=+v; touch(); render(); return; }
+    if(k==='gas-src'){ S.gas.src=v; touch(); render(); return; }
+    if(!k.startsWith('net-')) return;
+    S.nets={...S.nets,[k.slice(4)]:v}; S.utilities=netsAllNone(S)?'design':'existing';
+    let msg='';
+    if(k==='net-gas'){
+      S.gas.on=(v==='have');
+      if(v==='have'){ const m=fixGasHeat(); msg=m.length?m.join('. '):'Газ есть: у пароконвектомата, плиты, котла и сковороды можно выбрать газовое исполнение'; }
+      else msg=(v==='none'?'Газа нет':'Газ не известен')+': всё тепловое считается электрическим, выбор «Газ» сохранён';
+    }
+    touch(); render(); if(msg) toast(msg);
+  });
+  const kw=document.getElementById('kw'), mx=document.getElementById('kwmax'), err=document.getElementById('kwmax-err');
+  const chkMax=()=>{ const bad=S.res.max!=null&&S.res.kw!=null&&S.res.max<S.res.kw; mx.classList.toggle('err',bad); mx.setAttribute('aria-invalid',String(bad)); err.hidden=!bad;
+    err.textContent=bad?`Не может быть меньше, чем выделено сейчас (${fmt1(S.res.kw)} кВт)`:''; };
+  const resIn=(el,key)=>{ el.addEventListener('input',()=>{ const t=el.value.trim(), v=parseFloat(dot(t)); if(t===''){ S.res[key]=null; } else if(isFinite(v)&&v>0){ S.res[key]=v; } else return;
+    if(S.res.fit && resEff(S).lim==null) S.res.fit=false; touch(); recompute(); chkMax(); });
+    el.addEventListener('change',()=>{ const had=!!mx.closest('.fields').querySelector('[data-seg="phMax"]'); if(had!==!!S.res.max) render(); }); };
+  resIn(kw,'kw'); resIn(mx,'max'); chkMax();
+};
 
 /* ---------- SVG плана ---------- */
 function svgPt(e){ const svg=document.getElementById('plan'); const m=svg.getScreenCTM().inverse(); const p=new DOMPoint(e.clientX,e.clientY).matrixTransform(m);
@@ -5722,13 +5739,15 @@ function costCalc(){
   const eq=rows.filter(r=>r.src==='buy').reduce((s,r)=>s+priceOf(r.c)*r.qty,0);
   const hoodLen=Math.ceil(H.len*10)/10, hoodSum=hoodLen*S.hoodPrice, mont=(eq+hoodSum)*S.montage/100;
   const extra=extraRows(S), extras=extra.reduce((sum,r)=>sum+r.qty*r.price,0);
-  return {rows, eq, hoodLen, hoodSum, mont, extras, extraRows:extra, total:eq+hoodSum+mont+extras};
+  const total=eq+hoodSum+mont+extras, vatRate=S.norms.vat, vat=Math.round(total*vatRate/(100+vatRate)*100)/100;
+  return {rows, eq, hoodLen, hoodSum, mont, extras, extraRows:extra, total, vatRate, vat};
 }
+function vatLabel(C){ return C.vatRate?`в том числе НДС ${String(C.vatRate).replace('.',',')} %`:'НДС не облагается'; }
 function stepCost(){
   const C=costCalc();
   const hasGas=C.rows.some(r=>r.c.gas);
   const rows=C.rows.map(r=>`<tr><td>${esc(r.c.n)}</td><td class="r num">${r.qty}</td>${hasGas?`<td class="r num">${r.c.gas?(r.c.gkw>0?fmt1(r.c.gkw*r.qty):'—'):''}</td>`:''}<td class="r">${r.src==='have'?'<span class="tag have">имеется · 0 ₽</span>':`<input type="text" inputmode="decimal" data-num autocomplete="off" class="num" data-price="${r.c.id}" value="${priceOf(r.c)}" step="1000" min="0" aria-label="Цена за единицу">`}</td><td class="r num">${r.src==='have'?rub(0):rub(priceOf(r.c)*r.qty)}</td></tr>`).join('');
-  return `${stepHead('Спецификация и смета', `Цены — условные ориентиры, чтобы прикинуть бюджет. Впишите цены поставщика, итог пересчитается.`)}
+  return `${stepHead('Спецификация и смета', `Цены — условные ориентиры, чтобы прикинуть бюджет. Впишите цены поставщика, итог пересчитается. Цены — с НДС.`)}
   <div class="stack">
   <section class="panel"><div class="tbl-wrap"><table><thead><tr><th>Наименование</th><th class="r">Кол-во</th>${hasGas?'<th class="r">Газ, кВт тепл.</th>':''}<th class="r">Цена, ₽</th><th class="r">Сумма</th></tr></thead><tbody>${rows}
     <tr><td>Зонт вытяжной пристенный, погонный метр</td><td class="r num">${fmt1(C.hoodLen)} м</td>${hasGas?'<td></td>':''}<td class="r"><input type="text" inputmode="decimal" data-num autocomplete="off" class="num" id="hood-price" value="${S.hoodPrice}" step="1000" min="0" aria-label="Цена погонного метра зонта"></td><td class="r num">${rub(C.hoodSum)}</td></tr>
@@ -5741,6 +5760,7 @@ function stepCost(){
     <div class="sum-line"><span>Монтаж и пусконаладка, <input type="text" inputmode="decimal" data-num autocomplete="off" class="num" id="montage" value="${S.montage}" step="1" min="0" max="100" style="width:64px;padding:3px 6px" aria-label="Процент монтажа"> %</span><span class="num">${rub(C.mont)}</span></div>
     ${C.extraRows.length?`<div class="sum-line"><span>Свои строки</span><span class="num">${rub(C.extras)}</span></div>`:''}
     <div class="sum-line total"><span>Итого</span><span class="num">${rub(C.total)}</span></div>
+    <div class="sum-line"><span>${vatLabel(C)}</span>${C.vatRate?`<span class="num">${rub(C.vat,2)}</span>`:''}</div>
   </div></section>
   <section class="panel"><h3>Передать дальше</h3>
     <div class="btns"><button class="btn primary" type="button" data-open-report>Задание PDF</button><button class="btn" type="button" data-proj="download">Скачать файл проекта</button><button class="btn" type="button" data-proj="upload">Загрузить проект</button><button class="btn" type="button" id="cp-tbl">Скопировать спецификацию</button></div>
@@ -5770,6 +5790,7 @@ bind[7]=()=>{
     lines.push(['Монтаж и пусконаладка, '+S.montage+' %','','','','',Math.round(C.mont),'','',''].join('\t'));
     if(C.extraRows.length) lines.push(['Свои строки','','','','',Math.round(C.extras),'','',...(hasGas?['']:[]),''].join('\t'));
     lines.push(['Итого','','','','',Math.round(C.total),'','',''].join('\t'));
+    lines.push([vatLabel(C),'','','','',C.vatRate?String(C.vat).replace('.',','):'','','',''].join('\t'));
     copyText(lines.join('\n'),'Спецификация скопирована'); });
   document.getElementById('imp').addEventListener('click',()=>{ const t=document.getElementById('io').value; if(typeof importProjectText==='function') importProjectText(t); });
 };
@@ -5788,7 +5809,8 @@ const SET_GROUPS=[
     ['n-elw','elPanelWidth',1000,'Свободная зона перед электрощитом, ширина, мм',10,300,2000],
     ['n-elh','elPanelLowH',1000,'Перед щитом допустимы столы, нейтральное оборудование и холодильный стол высотой до, мм',10,500,1500,'щит вешается на уровне глаз'],
     ['n-elwd','elWaterDist',1000,'Источники воды (ванны, раковины, посудомоечная машина, водонагреватель, краны) — не ближе к электрощиту, мм',50,300,5000]]],
-  ['Газ',[['n-gas','gasHose',1,'Гибкая подводка газа, м',0.1,0.5,5,'упрощённое допущение: дальше — продление газопровода, это не запрет, а чуть больше работы']]]
+  ['Газ',[['n-gas','gasHose',1,'Гибкая подводка газа, м',0.1,0.5,5,'упрощённое допущение: дальше — продление газопровода, это не запрет, а чуть больше работы']]],
+  ['Смета',[['n-vat','vat',1,'Ставка НДС, %',1,0,30,'Цены вводятся с НДС, как их дают поставщики']]]
 ];
 const SET_FIELDS=SET_GROUPS.flatMap(g=>g[1]);
 const SET_KEYS=[...SET_FIELDS.map(f=>f[1]),'strict'];
@@ -5889,7 +5911,7 @@ function stepNorms(){
   return `${stepHead('Справка', `Как приложение подбирает и расставляет оборудование, и нормативные документы для справки. Числа, по которым идёт расчёт, — в <button type="button" class="linkish" data-set="">«⚙ Настройки расчёта»</button>.`)}
   <div class="stack">
   <section class="panel"><h3>Как устроен подбор и расстановка</h3>
-    <p style="margin:0 0 10px;max-width:72ch;font-size:14.5px">Тепловое оборудование выбирается вручную на шаге «Исходные»: пароконвектомат и/или плита — индукционная или газовая — обязательны, остальное — по необходимости. Если отмечено «Есть газ», пароконвектомат, плиту, котёл и сковороду можно выбрать газовыми: в электрическую нагрузку они входят только своей электрической частью (вентилятор, управление, розжиг), а тепловая мощность по газу и расход газа показываются на шаге «Инженерия». Кнопка «Подобрать по числу человек» предлагает типовые исполнения. Остальной набор считается по числу человек: столы, ванны, стеллажи, холодильники (если включены) и мойка посуды по числу тарелок и чашек. Имеющееся оборудование засчитывается первым. Мощность — результат проекта, а не ограничение: набор считается под технологию, а приложение показывает, сколько киловатт нужно кухне, и сравнивает это с тем, что выделено сейчас и до чего можно увеличить. Количество и исполнение на шаге «Подбор» можно править: правки хранятся отдельно и накладываются на каждый свежий расчёт, поэтому при смене числа людей набор пересчитывается, а ваши «+1», «убрано» и выбранные исполнения сохраняются; если расчёт с тех пор изменился, приложение предупредит. Если не хватает даже после увеличения, можно нажать «Уложиться в … кВт» — тогда упрощается только вспомогательное оборудование (посудомоечная машина, водонагреватель, холодильный стол), тепловое приложение не трогает. Трёхфазный ввод считается нужным, если есть оборудование на 380 В или нагрузка больше 15 кВт.</p>
+    <p style="margin:0 0 10px;max-width:72ch;font-size:14.5px">Тепловое оборудование выбирается вручную на шаге «Исходные»: пароконвектомат и/или плита — индукционная или газовая — обязательны, остальное — по необходимости. Если на шаге «Подключения» отмечено «Газ: есть», пароконвектомат, плиту, котёл и сковороду можно выбрать газовыми: в электрическую нагрузку они входят только своей электрической частью (вентилятор, управление, розжиг), а тепловая мощность по газу и расход газа показываются на шаге «Инженерия». Кнопка «Подобрать по числу человек» предлагает типовые исполнения. Остальной набор считается по числу человек: столы, ванны, стеллажи, холодильники (если включены) и мойка посуды по числу тарелок и чашек. Имеющееся оборудование засчитывается первым. Мощность — результат проекта, а не ограничение: набор считается под технологию, а приложение показывает, сколько киловатт нужно кухне, и сравнивает это с тем, что выделено сейчас и до чего можно увеличить. Количество и исполнение на шаге «Подбор» можно править: правки хранятся отдельно и накладываются на каждый свежий расчёт, поэтому при смене числа людей набор пересчитывается, а ваши «+1», «убрано» и выбранные исполнения сохраняются; если расчёт с тех пор изменился, приложение предупредит. Если не хватает даже после увеличения, можно нажать «Уложиться в … кВт» — тогда упрощается только вспомогательное оборудование (посудомоечная машина, водонагреватель, холодильный стол), тепловое приложение не трогает. Трёхфазный ввод считается нужным, если есть оборудование на 380 В или нагрузка больше 15 кВт.</p>
     <p style="margin:0;max-width:72ch;font-size:14.5px">Автоматическая расстановка начинается с тепловой линии: перебираются её положения у стен, затем вокруг неё выстраивается технологический поток — от двери загрузки вдоль стен — раковина для рук, хранение, мытьё, чистка и разделка, нарезка, термообработка одной линией под один зонт, сервировка — и заканчивается выдачей у двери в трапезную. Мойка посуды ставится после выдачи. Если дверь одна, поток идёт по кругу и возвращается к ней. Оборудование выстраивается в линию без разрывов: углы и промежутки заполняются столами-вставками — им не нужна своя рабочая зона, на них и под ними можно хранить. Под окнами ставятся только столы и низкое оборудование; высокое — не ближе 120 мм к краю проёма, до 80 мм — только если иначе всё не помещается. Аппараты со сливом — ванны, раковины, посудомоечная машина, пароконвектомат, котёл, сковорода — тянутся к выпуску канализации: слив считается вдоль стен, через дверной проём не проходит, выступ огибает; до трапа в полу — по прямой. Длиннее предела — замечание. Перебираются оба направления обхода, и выбирается вариант с меньшим числом нарушений и отступлений от потока.</p>
   </section>
   <section class="panel"><h3>Справочно: нормативные документы</h3><p class="hint" style="margin-bottom:10px">Обязательными для трапезной их приложение не считает. Пригодятся, если включён строгий режим или нужно обосновать решение.</p>${docs.map(d=>`<div class="norm"><b>${d[0]}</b><span class="status ${d[1].startsWith('действует')?'':'old'}">${d[1]}</span><p>${d[2]}</p></div>`).join('')}</section>
@@ -6331,14 +6353,13 @@ function reportDateLabel(value){ value=typeof value==='string'?value:''; const m
 function fmtPower(n){ return (Math.round((n+Number.EPSILON)*1000)/1000).toLocaleString('ru-RU',{maximumFractionDigits:3}); }
 function reportSummaryBlocks(ctx){ const m=ctx.meta, p=P.power, R=resEff(S), cost=costCalc(), posL=ctx.pos.list;
     const area=S.rooms.reduce((a,r)=>a+roomArea(r),0), buyN=posL.filter(x=>x.src==='buy').length, haveN=posL.filter(x=>x.src==='have').length;
-    const gasOn=S.gas&&S.gas.on, gasItems=P.items.some(i=>i.c.gas);
     const pw=`${fmtPower(p.demand)} кВт, ${p.need3?'3 фазы, 380 В':'1 фаза, 220 В'}`+(R.A!=null?` · сейчас ${fmt1(R.A)} кВт`:'')+(R.B!=null?` · можно до ${fmt1(R.B)} кВт`:'');
     return [
       {t:'h3', text:'Кратко'},
       {t:'kv', cols:2, rows:[
         ['Человек за трапезой', fmt0(S.people)], ['Трапез в день', String(S.meals)],
         ['Помещений', `${S.rooms.length}, всего ${fmt1(area)} м²`], ['Позиций оборудования', `${posL.length}: купить ${buyN}, имеется ${haveN}`],
-        ['Требуется электричества', pw], ['Газ', gasOn?(S.gas.src==='bottle'?'есть, баллоны':'есть, сеть'):netState(S,'gas')==='unk'?'неизвестно':netState(S,'gas')==='have'?'есть, в подборе не используется':(gasItems?'есть газовое имеющееся':'нет')],
+        ['Требуется электричества', pw], ['Газ', gasStatus(S)],
         ['Итог сметы', rub(cost.total)], ['Режим правил', S.norms.strict?'строгий (общепит)':'здравый смысл']]},
       {t:'p', text:'Расчёты ориентировочные: это исходные данные для поставщика оборудования и проектировщиков инженерных систем. Итоговые значения определяет проектировщик.', muted:true}];
 }
@@ -6372,7 +6393,7 @@ REPORT.register({ id:'input', title:'Исходные данные', group:'Об
       {t:'h3', text:'Энергоснабжение и газ'},
       {t:'kv', cols:2, rows:[['Сейчас выделено', R.A!=null?fmt1(R.A)+' кВт':'не указано'],['Сейчас ввод', S.res.ph===3?'3 фазы, 380 В':'1 фаза, 220 В'],
         ['Можно увеличить до', R.B!=null?fmt1(R.B)+' кВт':'не указано'],['Ввод после увеличения', R.B!=null?(S.res.phMax===1?'1 фаза, 220 В':'3 фазы, 380 В'):'—'],
-        ['Уложиться в мощность', S.res.fit?'да, вспомогательное упрощено':'нет, подбор под технологию'],['Газ', S.gas&&S.gas.on?(S.gas.src==='bottle'?'есть, баллоны':'есть, сеть (есть или можно провести)'):netState(S,'gas')==='unk'?'неизвестно':netState(S,'gas')==='have'?'есть, в подборе не используется':'нет']]}]; } });
+        ['Уложиться в мощность', S.res.fit?'да, вспомогательное упрощено':'нет, подбор под технологию'],['Газ', gasStatus(S)]]}]; } });
 
 REPORT.register({ id:'rooms', title:'Помещения', group:'Помещения', order:400, audience:['full'],
   build(ctx){ const links=r=>{ const t=[]; for(const l of effLinks()){ const o=l[0]===r.id?l[1]:l[1]===r.id?l[0]:null; if(!o) continue; t.push(LINK_EXT[o]||('«'+roomName(S,o)+'»')); } return t.join(', ')||'—'; };
@@ -6572,7 +6593,7 @@ REPORT.register({ id:'cost', title:'Смета', group:'Справочно', ord
     C.extraRows.forEach(r=>rows.push(['',r.name.trim()||'Без названия',String(r.qty),fmt0(r.price),fmt0(r.qty*r.price)]));
     return [{t:'h1', text:'Смета'},
       {t:'table', cols:[{title:'Поз.',w:.6,align:'r'},{title:'Наименование',w:5},{title:'Кол-во',w:.9,align:'r'},{title:'Цена, ₽',w:1.2,align:'r'},{title:'Сумма, ₽',w:1.3,align:'r'}], rows,
-        foot:[['','Оборудование к закупке','','',fmt0(C.eq)],['','Зонты','','',fmt0(C.hoodSum)],['',`Монтаж и пусконаладка, ${S.montage} %`,'','',fmt0(C.mont)],...(C.extraRows.length?[['','Свои строки','','',fmt0(C.extras)]]:[]),['','Итого','','',fmt0(C.total)]],
+        foot:[['','Оборудование к закупке','','',fmt0(C.eq)],['','Зонты','','',fmt0(C.hoodSum)],['',`Монтаж и пусконаладка, ${S.montage} %`,'','',fmt0(C.mont)],...(C.extraRows.length?[['','Свои строки','','',fmt0(C.extras)]]:[]),['','Итого','','',fmt0(C.total)],['',vatLabel(C),'','',C.vatRate?fmt2(C.vat):'']],
         note: custom?'Цены ориентировочные; часть цен введена пользователем.':'Цены ориентировочные, из справочника приложения. Впишите цены поставщика на шаге «Смета».'}]; } });
 
 REPORT.register({ id:'rules', title:'Правила и допущения', group:'Справочно', order:1600, audience:['full'],
@@ -7314,7 +7335,7 @@ function sanitizeProject(d){
   if(!Array.isArray(d.existing)){ d.existing=[]; messages.push('Сброшен список имеющегося оборудования'); }
   if(own(d,'nets')&&!obj(d.nets)) drop(d,'nets','Восстановлены настройки инженерных сетей');
   if(obj(d.nets)&&NET_KEYS.some(k=>own(d.nets,k)&&!['have','none','unk'].includes(d.nets[k]))) messages.push('Восстановлены настройки инженерных сетей');
-  d.nets=normNets(d); d.utilities=netsAllNone(d)?'design':'existing';
+  d.nets=normNets(d); migrateGas(d,d.gas); d.utilities=netsAllNone(d)?'design':'existing';
   if(own(d,'extras')){
     if(!Array.isArray(d.extras)) drop(d,'extras','Удалён повреждённый список своих строк сметы');
     else { const rows=extraRows(d), filtered=rows.filter(r=>obj(r)&&num(r.qty)&&r.qty>=0&&num(r.price)&&r.price>=0);
